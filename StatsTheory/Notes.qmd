@@ -1,0 +1,41 @@
+---
+title: "Statistics_Theory"
+format: html
+editor: visual
+startDate: April 10, 2024
+lastUpdate: April 10, 2024
+---
+
+## Theory of Statistics Study Notes
+
+Description: This notes is designed to help me review statistics theory. I will try to summarize all materials based on what we have learned in STAT135 UC Berkeley and may discuss topics beyond if I have time.
+
+For every subject discussed, I will start with a brief outline of the content, namely a crash course, and then proceed to detailed description. Although I am a math major, I will try to avoid rigorous math proof because it is time consuming and I can not stop myself from constantly checking rigorosity.
+
+Instead of start from the creation of the world, I will write in terms of emergency. I will start by writing down what I think is the most important.
+
+Before we start, we need load all the packages needed. R is also a requirement for stat135.
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+I will use these packages to conduct data wrangling, visualization, and statistical testing.
+
+### Hypothesis Testing
+
+I would say this is a very confusing topic since modern testing is a hybrid version of Fisher's approach and Neyman-Pearson's approach. (Pearson's chi-squared test and Neyman-Pearson are not the same Pearson. One is Karl Pearson, and the other is his son Egon Pearson). I will give the framework of generally conducting a hypothesis test and discuss the test we have learned. Here is a list of tests that we have learned:
+
+| Parametric              | Non-Parametric            |
+|-------------------------|---------------------------|
+| General Likelihood Test |                           |
+| Independent t-test      | Man-Whitney test          |
+| Paired t-test           | Wilcoxon Signed Rank test |
+| Goodness of Fit test    |                           |
+| Test of Homogeneity     |                           |
+| Test of Independence    |                           |
+| One-way ANOVA           | Kruskal Wallis test       |
+| Proportion z-test       |                           |
+
+We will talk about the purposes, assumptions, and test statistics of the tests listed above, but first, let me introduce the general framework for conducting a hypothesis test.
