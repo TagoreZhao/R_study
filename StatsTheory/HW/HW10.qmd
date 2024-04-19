@@ -1,0 +1,11 @@
+---
+title: "HW10"
+format: html
+---
+
+#### Problem 10A
+
+```{r}
+
+
+```
