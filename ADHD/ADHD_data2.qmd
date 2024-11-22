@@ -1,0 +1,441 @@
+---
+title: 'ADHD Dataset2 Exploration'
+subtitle: 'DSDP Program UC Berkeley'
+output:
+  pdf_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE, autodep = TRUE, cache.comments = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(car)
+library(stats) 
+```
+
+## Hypothesis Statement
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Load Dataset and Inspect
+```{r}
+getwd()
+data = read.csv("data2.csv")
+data <- data %>%
+  rename(
+    ParticipantID = Participant_ID,
+    Age = Age,
+    Gender = Gender,
+    Inattention = Inattention_Score,
+    Hyperactivity = Hyperactivity_Score,
+    ADHDSeverity = Overall_ADHD_Severity,
+    ComorbidConditions = Comorbid_Conditions,
+    FamilyADHDHistory = Family_ADHD_History,
+    FamilyMembersADHD = Family_Members_with_ADHD,
+    IQScore = IQ_Score,
+    WorkingMemory = Working_Memory_Score,
+    ExecutiveFunctioning = Executive_Functioning_Score,
+    MedicationType = Medication_Type,
+    MedicationDuration = Medication_Duration_Years,
+    TherapyHistory = Behavioral_Therapy_History,
+    Ethnicity = Ethnicity,
+    EducationLevel = Education_Level,
+    Region = Geographic_Region,
+    LanguagesAtHome = Languages_Spoken_at_Home,
+    MaternalSmoking = Maternal_Smoking_During_Pregnancy,
+    AlcoholUse = Alcohol_Use_During_Pregnancy,
+    DrugUse = Drug_Use_During_Pregnancy,
+    MaternalStress = Maternal_Stress_Levels,
+    BirthWeight = Birth_Weight_kg,
+    GestationalAge = Gestational_Age_Weeks,
+    ChildhoodIllnesses = Early_Childhood_Illnesses,
+    FamilyIncome = Family_Income_Level,
+    ParentalEducation = Parental_Education_Level,
+    ParentalOccupation = Parental_Occupation,
+    ParentingStyle = Parenting_Style,
+    ParentalInvolvement = Parental_Involvement_in_Education,
+    DomesticViolence = Domestic_Violence_History,
+    MaritalStatus = Marital_Status_of_Parents,
+    NumSiblings = Number_of_Siblings,
+    SchoolType = School_Type,
+    TeacherRating = Teacher_Rating_of_Behavior,
+    SocialSkills = Social_Skills_Assessment
+  )
+
+# Verify the new column names
+colnames(data)
+```
+
+We first inspect the effect of gender:
+
+Hypothesis 1: The impact of gender on ADHD severity
+```{r}
+
+data$Gender <- as.factor(data$Gender)
+
+data %>%
+  group_by(Gender) %>%
+  summarise(
+    Mean_Inattention = mean(Inattention, na.rm = TRUE),
+    Mean_Hyperactivity = mean(Hyperactivity, na.rm = TRUE),
+    Mean_ADHDSeverity = mean(ADHDSeverity, na.rm = TRUE)
+  )
+
+ggplot(data, aes(x = Gender, y = ADHDSeverity, fill = Gender)) +
+  geom_boxplot() +
+  labs(title = "ADHD Severity by Gender",
+       x = "Gender",
+       y = "ADHD Severity") +
+  theme_minimal()
+
+# Check assumptions for ANOVA
+# 1. Test for normality using Shapiro-Wilk test
+ks.test(data$Inattention, "pnorm", mean = mean(data$Inattention, na.rm = TRUE), sd = sd(data$Inattention, na.rm = TRUE))
+ks.test(data$Hyperactivity, "pnorm", mean = mean(data$Hyperactivity, na.rm = TRUE), sd = sd(data$Hyperactivity, na.rm = TRUE))
+ks.test(data$ADHDSeverity, "pnorm", mean = mean(data$ADHDSeverity, na.rm = TRUE), sd = sd(data$ADHDSeverity, na.rm = TRUE))
+
+# Visualize distributions
+hist(data$Inattention, breaks = 30, main = "Histogram of Inattention", xlab = "Inattention", col = "blue")
+qqnorm(data$Inattention)
+qqline(data$Inattention, col = "red")
+
+hist(data$Hyperactivity, breaks = 30, main = "Histogram of Hyperactivity", xlab = "Hyperactivity", col = "blue")
+qqnorm(data$Hyperactivity)
+qqline(data$Hyperactivity, col = "red")
+
+hist(data$ADHDSeverity, breaks = 30, main = "Histogram of ADHDSeverity", xlab = "ADHDSeverity", col = "blue")
+qqnorm(data$ADHDSeverity)
+qqline(data$ADHDSeverity, col = "red")
+```
+
+
+The p-values for all three variables are much greater than 0.05, indicating no statistically significant differences in Inattention, Hyperactivity, or ADHDSeverity across gender groups. This suggests that gender does not have a significant impact on ADHD severity scores in your dataset.
+
+Hypothesis 2: Family history of ADHD correlates with ADHD severity in children
+```{r}
+# Kruskal-Wallis test for ADHD Severity measures
+kruskal_inattention <- kruskal.test(Inattention ~ Gender, data = data)
+kruskal_hyperactivity <- kruskal.test(Hyperactivity ~ Gender, data = data)
+kruskal_overall <- kruskal.test(ADHDSeverity ~ Gender, data = data)
+
+# Display results
+kruskal_inattention
+kruskal_hyperactivity
+kruskal_overall
+```
+
+Hypothesis 3: The relationship between parenting style and ADHD severity
+Now we proceed to examine the effect of family history:
+```{r}
+data$FamilyADHDHistory <- as.factor(data$FamilyADHDHistory)
+data %>%
+  group_by(FamilyADHDHistory) %>%
+  summarise(
+    Mean_ADHDSeverity = mean(ADHDSeverity, na.rm = TRUE),
+    Median_ADHDSeverity = median(ADHDSeverity, na.rm = TRUE),
+    Count = n()
+  )
+
+ggplot(data, aes(x = FamilyADHDHistory, y = ADHDSeverity, fill = FamilyADHDHistory)) +
+  geom_boxplot() +
+  labs(
+    title = "ADHD Severity by Family History of ADHD",
+    x = "Family History of ADHD",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal()
+
+wilcox_test <- wilcox.test(
+  ADHDSeverity ~ FamilyADHDHistory,
+  data = data,
+  exact = FALSE # Use exact=FALSE for large datasets
+)
+
+wilcox_test
+```
+This indicates no statistically significant difference in ADHD severity scores between children with and without a family history of ADHD.
+
+Hypothesis 4: The role of parental involvement in education in ADHD symptom severity
+```{r}
+data$ParentingStyle <- as.factor(data$ParentingStyle)
+
+# Summary statistics by ParentingStyle
+data %>%
+  group_by(ParentingStyle) %>%
+  summarise(
+    Mean_ADHDSeverity = mean(ADHDSeverity, na.rm = TRUE),
+    Median_ADHDSeverity = median(ADHDSeverity, na.rm = TRUE),
+    Count = n()
+  )
+
+# Visualize ADHD severity by ParentingStyle
+ggplot(data, aes(x = ParentingStyle, y = ADHDSeverity, fill = ParentingStyle)) +
+  geom_boxplot() +
+  labs(
+    title = "ADHD Severity by Parenting Style",
+    x = "Parenting Style",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal()
+
+# Kruskal-Wallis test for ADHDSeverity by ParentingStyle
+kruskal_test <- kruskal.test(ADHDSeverity ~ ParentingStyle, data = data)
+
+# Display Kruskal-Wallis test results
+kruskal_test
+
+if (kruskal_test$p.value < 0.05) {
+  dunn_test <- dunnTest(ADHDSeverity ~ ParentingStyle, data = data, method = "bonferroni")
+  dunn_test
+}
+```
+```{r}
+data$ParentalInvolvement <- factor(data$ParentalInvolvement, levels = c("Low", "Moderate", "High"))
+
+# Summary statistics for ADHD severity by parental involvement
+data %>%
+  group_by(ParentalInvolvement) %>%
+  summarise(
+    Mean_ADHDSeverity = mean(ADHDSeverity, na.rm = TRUE),
+    Median_ADHDSeverity = median(ADHDSeverity, na.rm = TRUE),
+    Count = n()
+  )
+
+# Visualize ADHD severity by parental involvement
+ggplot(data, aes(x = ParentalInvolvement, y = ADHDSeverity, fill = ParentalInvolvement)) +
+  geom_boxplot() +
+  labs(
+    title = "ADHD Severity by Parental Involvement",
+    x = "Parental Involvement",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal()
+
+# Kruskal-Wallis test for ADHDSeverity by ParentalInvolvement
+kruskal_test <- kruskal.test(ADHDSeverity ~ ParentalInvolvement, data = data)
+
+# Display Kruskal-Wallis test results
+kruskal_test
+
+# Post-hoc Dunn's test if Kruskal-Wallis is significant
+if (kruskal_test$p.value < 0.05) {
+  dunn_test <- dunnTest(ADHDSeverity ~ ParentalInvolvement, data = data, method = "bonferroni")
+  dunn_test
+}
+
+# Spearman rank correlation for ordinal parental involvement
+spearman_corr <- cor.test(
+  as.numeric(data$ParentalInvolvement),
+  data$ADHDSeverity,
+  method = "spearman"
+)
+
+# Display Spearman correlation results
+spearman_corr
+```
+The p-value is greater than 0.05, indicating no statistically significant differences in ADHD severity across the levels of parental involvement (Low, Moderate, High). The correlation coefficient is very close to zero, suggesting a negligible relationship between parental involvement and ADHD severity. The p-value is greater than 0.05, indicating the correlation is not statistically significant.
+
+Hypothesis 5: Comorbid conditions influence the severity of ADHD symptoms
+```{r}
+data$ComorbidConditions <- as.factor(data$ComorbidConditions)
+
+# Summary statistics for ADHD severity by comorbid conditions
+data %>%
+  group_by(ComorbidConditions) %>%
+  summarise(
+    Mean_ADHDSeverity = mean(ADHDSeverity, na.rm = TRUE),
+    Median_ADHDSeverity = median(ADHDSeverity, na.rm = TRUE),
+    Count = n()
+  )
+
+# Visualize ADHD severity by comorbid conditions
+ggplot(data, aes(x = ComorbidConditions, y = ADHDSeverity, fill = ComorbidConditions)) +
+  geom_boxplot() +
+  labs(
+    title = "ADHD Severity by Comorbid Conditions",
+    x = "Comorbid Conditions",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Kruskal-Wallis test for ADHDSeverity by ComorbidConditions
+kruskal_test <- kruskal.test(ADHDSeverity ~ ComorbidConditions, data = data)
+
+# Display Kruskal-Wallis test results
+kruskal_test
+
+# Post-hoc Dunn's test if Kruskal-Wallis is significant
+if (kruskal_test$p.value < 0.05) {
+  dunn_test <- dunnTest(ADHDSeverity ~ ComorbidConditions, data = data, method = "bonferroni")
+  dunn_test
+}
+
+```
+
+Hypothesis 6: The influence of IQ score on ADHD severity
+```{r}
+spearman_corr <- cor.test(
+  data$IQScore,
+  data$ADHDSeverity,
+  method = "spearman"
+)
+
+# Display Spearman correlation results
+spearman_corr
+
+# Fit a linear regression model
+lm_model <- lm(ADHDSeverity ~ IQScore, data = data)
+
+# Display linear regression summary
+summary(lm_model)
+
+# Visualize the relationship with a scatter plot and regression line
+ggplot(data, aes(x = IQScore, y = ADHDSeverity)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Relationship Between IQ Score and ADHD Severity",
+    x = "IQ Score",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal()
+```
+The correlation coefficient is very close to 0, indicating an extremely weak relationship between IQ scores and ADHD severity. The p-value (p=0.283) is greater than 0.05, suggesting that the relationship is not statistically significant.The effect size (slope) is negligible, and the model explains almost none of the variation in ADHD severity.
+
+Hypothesis 7: Domestic violence history affects ADHD symptoms
+- Test: Investigate whether a history of domestic violence in the household is
+associated with more severe ADHD symptoms.
+```{r}
+data$DomesticViolence <- as.factor(data$DomesticViolence)
+
+# Summary statistics for ADHD severity by domestic violence history
+data %>%
+  group_by(DomesticViolence) %>%
+  summarise(
+    Mean_ADHDSeverity = mean(ADHDSeverity, na.rm = TRUE),
+    Median_ADHDSeverity = median(ADHDSeverity, na.rm = TRUE),
+    Count = n()
+  )
+
+# Visualize ADHD severity by domestic violence history
+ggplot(data, aes(x = DomesticViolence, y = ADHDSeverity, fill = DomesticViolence)) +
+  geom_boxplot() +
+  labs(
+    title = "ADHD Severity by Domestic Violence History",
+    x = "Domestic Violence History",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal()
+
+# Wilcoxon rank-sum test (Mann-Whitney U Test) for ADHDSeverity
+wilcox_test_dv <- wilcox.test(
+  ADHDSeverity ~ DomesticViolence,
+  data = data,
+  exact = FALSE
+)
+
+# Display Wilcoxon test results
+wilcox_test_dv
+```
+
+Hypothesis 8: The effect of school type (private vs public) on teacher ratings
+of behavior
+- Test: Compare teacher ratings of behavior between students attending 
+private and public schools to see if school type impacts behavioral 
+assessments.
+```{r}
+# Ensure SchoolType is a factor
+data$SchoolType <- as.factor(data$SchoolType)
+
+# Summary statistics for teacher ratings by school type
+data %>%
+  group_by(SchoolType) %>%
+  summarise(
+    Mean_TeacherRating = mean(TeacherRating, na.rm = TRUE),
+    Median_TeacherRating = median(TeacherRating, na.rm = TRUE),
+    Count = n()
+  )
+
+# Visualize teacher ratings by school type
+ggplot(data, aes(x = SchoolType, y = TeacherRating, fill = SchoolType)) +
+  geom_boxplot() +
+  labs(
+    title = "Teacher Ratings by School Type",
+    x = "School Type",
+    y = "Teacher Rating"
+  ) +
+  theme_minimal()
+
+# Wilcoxon rank-sum test (Mann-Whitney U Test) for TeacherRating
+wilcox_test_school <- wilcox.test(
+  TeacherRating ~ SchoolType,
+  data = data,
+  exact = FALSE
+)
+
+# Display Wilcoxon test results
+wilcox_test_school
+
+```
+
+Hypothesis 9: Number of siblings affects ADHD symptoms
+- Test: Examine if having more or fewer siblings is associated with changes in
+ADHD symptom severity or social skills assessments
+```{r}
+# Spearman's rank correlation for NumSiblings and ADHDSeverity
+spearman_corr_adhd <- cor.test(
+  data$NumSiblings,
+  data$ADHDSeverity,
+  method = "spearman"
+)
+
+# Spearman's rank correlation for NumSiblings and SocialSkills
+spearman_corr_social <- cor.test(
+  data$NumSiblings,
+  data$SocialSkills,
+  method = "spearman"
+)
+
+# Display Spearman correlation results
+spearman_corr_adhd
+spearman_corr_social
+
+# Linear regression for NumSiblings predicting ADHDSeverity
+lm_adhd <- lm(ADHDSeverity ~ NumSiblings, data = data)
+summary(lm_adhd)
+
+# Linear regression for NumSiblings predicting SocialSkills
+lm_social <- lm(SocialSkills ~ NumSiblings, data = data)
+summary(lm_social)
+
+# Visualization: NumSiblings vs ADHDSeverity
+ggplot(data, aes(x = NumSiblings, y = ADHDSeverity)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Relationship Between Number of Siblings and ADHD Severity",
+    x = "Number of Siblings",
+    y = "ADHD Severity"
+  ) +
+  theme_minimal()
+
+# Visualization: NumSiblings vs SocialSkills
+ggplot(data, aes(x = NumSiblings, y = SocialSkills)) +
+  geom_point(alpha = 0.6, color = "green") +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Relationship Between Number of Siblings and Social Skills",
+    x = "Number of Siblings",
+    y = "Social Skills"
+  ) +
+  theme_minimal()
+
+```
+
+
+
