@@ -68,6 +68,7 @@ data <- data %>%
 
 # Verify the new column names
 colnames(data)
+data
 ```
 
 We first inspect the effect of gender:

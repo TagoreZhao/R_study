@@ -1,0 +1,221 @@
+---
+title: "DSDP"
+output: html_document
+date: "2024-09-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+library(tidyverse)
+library(readxl)
+library(car)
+library(boot)
+library(glmnet)
+```
+
+## Preliminary Check
+
+```{r pressure, echo=FALSE}
+data <- read_excel("Families_with_ADHD_and_Genetic_Risk_Dataset 2 (1).xls")
+
+
+# View the column names
+colnames(data)
+
+colnames(data) <- make.names(colnames(data), unique = TRUE)
+
+# Check for rows or columns with invalid multibyte characters
+invalid_rows <- which(!sapply(data, function(x) is.character(x) || is.numeric(x)))
+
+data[invalid_rows,]
+
+data$Child.Gender <- as.factor(data$Child.Gender)
+data$ADHD.Diagnosis <- as.factor(data$ADHD.Diagnosis)
+data$Parental.ADHD.History <- as.factor(data$Parental.ADHD.History)
+data$Socioeconomic.Status <- as.factor(data$Socioeconomic.Status)
+data$Parental.Education.Level <- as.factor(data$Parental.Education.Level)
+data$Parenting.Style <- as.factor(data$Parenting.Style)
+
+# Summary of factors
+summary(data[, sapply(data, is.factor)])
+
+view(data)
+```
+
+Test the hypothesis that children with parental ADHD history are more likely to have an ADHD diagnosis:
+
+H₀: There is no association between parental ADHD history and ADHD diagnosis in children. In other words, the proportion of children diagnosed with ADHD is independent of whether their parents have a history of ADHD.
+
+The bar plot represents the proportion of children with ADHD (labeled as "Yes") versus those without ADHD (labeled as "No") based on whether their parents have a history of ADHD. The key insights from the plot are as follows:
+
+Parental ADHD History - "No": In families where parents do not have a history of ADHD, a relatively large proportion of children are diagnosed with ADHD. However, the proportion of children without an ADHD diagnosis is still higher than those diagnosed with ADHD.
+
+Parental ADHD History - "Yes": In families where parents do have a history of ADHD, the proportion of children diagnosed with ADHD is slightly higher compared to those without a diagnosis.
+
+The p-value (0.005375) is below the common significance level of 0.05, which means we can reject the null hypothesis that ADHD diagnosis and parental ADHD history are independent of each other.
+
+```{r}
+# Bar plot for ADHD diagnosis by parental ADHD history
+ggplot(data, aes(x = Parental.ADHD.History, fill = ADHD.Diagnosis)) + 
+    geom_bar(position = "fill") + 
+    labs(title = "ADHD Diagnosis by Parental ADHD History", x = "Parental ADHD History", y = "Proportion")
+
+# Perform Chi-Square Test to test independence
+chisq_test <- chisq.test(table(data$ADHD.Diagnosis, data$Parental.ADHD.History))
+chisq_test
+```
+
+Examing the distribution of genetic risk scores by ADHD diagnosis and parental ADHD history:
+
+This box plot compares the child genetic risk score between children diagnosed with ADHD (Yes) and those without ADHD (No). This suggests that genetic risk scores (in their current form) may not show a large, easily distinguishable difference between ADHD and non-ADHD children.
+
+This box plot compares the parental genetic risk score between children diagnosed with ADHD (Yes) and those without ADHD (No).There doesn’t seem to be a large difference in parental genetic risk scores between ADHD diagnosis groups based on this plot.
+
+This scatter plot shows the parental genetic risk score on the x-axis and the child genetic risk score on the y-axis. Each point represents an individual child, and the color indicates their ADHD diagnosis (Yes = blue, No = red). There appears to be no clear pattern or strong correlation between the parental and child genetic risk scores based on visual inspection. The data points are scattered across the plot with no discernible trend.
+
+```{r}
+# Boxplot for child genetic risk score by ADHD diagnosis
+ggplot(data, aes(x = ADHD.Diagnosis, y = Genetic.Risk.Score, fill = ADHD.Diagnosis)) + 
+    geom_boxplot() + 
+    labs(title = "Genetic Risk Score by ADHD Diagnosis", y = "Genetic Risk Score", x = "ADHD Diagnosis")
+
+# Boxplot for parental genetic risk score by ADHD diagnosis
+ggplot(data, aes(x = ADHD.Diagnosis, y = Parental.Genetic.Risk.Score, fill = ADHD.Diagnosis)) + 
+    geom_boxplot() + 
+    labs(title = "Parental Genetic Risk Score by ADHD Diagnosis", y = "Parental Genetic Risk Score", x = "ADHD Diagnosis")
+
+# Scatter plot between parental and child genetic risk scores
+ggplot(data, aes(x = Parental.Genetic.Risk.Score, y = Genetic.Risk.Score)) + 
+    geom_point(aes(color = ADHD.Diagnosis)) + 
+    labs(title = "Parental vs Child Genetic Risk Scores", x = "Parental Genetic Risk Score", y = "Child Genetic Risk Score")
+```
+
+Across all models, Parental ADHD History shows a significant association with ADHD diagnosis (p-values around 0.005), suggesting that parental history of ADHD is a key predictor of ADHD diagnosis in children. Other variables, including Genetic Risk Score, Parental Genetic Risk Score, Child's Gender, Socioeconomic Status, and Parenting Style, do not show significant effects.
+
+Child's Gender: In all models, this variable is non-significant, indicating that gender may not play a critical role in predicting ADHD diagnosis.
+
+Genetic Risk Score: Despite expectations, genetic risk scores do not appear to significantly predict ADHD diagnosis (p \> 0.9 across models). This may suggest that genetic predisposition, while relevant in some contexts, might not be a primary driver when considered alongside parental ADHD history.
+
+Environmental Factors: Variables such as Socioeconomic Status, Parenting Style, and Environmental Stress show no significant association with ADHD diagnosis. This could indicate that the diagnosis is more strongly tied to biological factors, especially parental history.
+
+Residual Deviance: All models have relatively high residual deviance, indicating that there may be additional factors influencing ADHD diagnosis that are not captured by the current variables.
+
+```{r}
+# Logistic Regression Model 1
+model1 <- glm(ADHD.Diagnosis ~ Child.Gender + Parental.ADHD.History + Genetic.Risk.Score + Parental.Genetic.Risk.Score, 
+              data = data, family = "binomial")
+
+# Summary of the model
+summary(model1)
+
+
+model2 <- glm(ADHD.Diagnosis ~ Socioeconomic.Status + Parenting.Style + Environmental.Stress.Score, 
+              data = data, family = "binomial")
+
+# Summary of the model
+summary(model2)
+
+
+# Logistic Regression Model 4 (Full Model)
+model4 <- glm(ADHD.Diagnosis ~ Child.Gender + Child.Age + Parental.ADHD.History + Genetic.Risk.Score + 
+              Parental.Genetic.Risk.Score + Socioeconomic.Status + Parenting.Style + 
+              Environmental.Stress.Score + Parental.Education.Level, 
+              data = data, family = "binomial")
+
+# Summary of the model
+summary(model4)
+```
+
+We now investigate the Multicolinearity among different variables:
+
+The Generalized Variance Inflation Factor (GVIF) output shows the following values for each variable:
+
+All the GVIF values are very close to 1, which indicates that there is no significant multicollinearity among the variables. For variables with more than one degree of freedom (e.g., Socioeconomic.Status, Parenting.Style, Parental.Education.Level), the GVIF\^(1/(2\*Df)) column provides a more interpretable value, and these are also very close to 1.
+
+A GVIF value of 1 indicates that there is no correlation between a predictor and the other variables in the model. Since all the values are near 1, it suggests that multicollinearity is not a concern in your model. None of the predictors are highly correlated with each other.
+
+```{r}
+# Fit a full logistic regression model
+full_model <- glm(ADHD.Diagnosis ~ Child.Gender + Child.Age + Parental.ADHD.History + Genetic.Risk.Score + 
+              Parental.Genetic.Risk.Score + Socioeconomic.Status + Parenting.Style + 
+              Environmental.Stress.Score + Parental.Education.Level, 
+                  family = binomial, data = data)
+
+# Calculate Variance Inflation Factors (VIF)
+vif(full_model)
+```
+
+Automate Model Selection with Stepwise Regression:
+
+The initial model with all predictors started with an AIC of 10093. After several steps of removing variables, the final model has an AIC of 10076. The final model suggests that Parental ADHD History is the most significant predictor of ADHD diagnosis, while other variables (e.g., Child Gender, Genetic Risk Score, Socioeconomic Status) did not significantly improve the model fit.
+
+```{r}
+library(MASS)
+
+# Start with the full model
+stepwise_model <- stepAIC(full_model, direction = "both")  # Both backward and forward selection
+
+# View the selected model
+summary(stepwise_model)
+
+# Check the AIC of the final model
+final_aic <- AIC(stepwise_model)
+print(final_aic)
+```
+
+We now evaluate the Area Under the Curve to evaluate the model's predictive performance.
+
+```{r}
+library(pROC)
+roc_curve <- roc(data$ADHD.Diagnosis, predict(full_model, type = "response"))
+plot(roc_curve)
+auc(roc_curve)
+```
+
+```{r}
+# Fit a logistic regression model with additional factors
+model_with_more_factors <- glm(ADHD.Diagnosis ~ Child.Gender + Child.Age + Parental.ADHD.History + 
+                               Genetic.Risk.Score + Parental.Genetic.Risk.Score + 
+                               Socioeconomic.Status + Parenting.Style + Environmental.Stress.Score, 
+                               family = binomial, data = data)
+# Generate predicted probabilities from the new model
+predicted_probabilities <- predict(model_with_more_factors, type = "response")
+
+# Create an ROC curve and compute the AUC
+roc_curve <- roc(data$ADHD.Diagnosis, predicted_probabilities)
+
+# Plot the ROC curve
+plot(roc_curve)
+
+# Calculate and display the AUC
+auc_value <- auc(roc_curve)
+print(paste("AUC Score:", auc_value))
+```
+
+```{r}
+# Lasso regression with glmnet package
+x <- model.matrix(ADHD.Diagnosis ~ ., data)[, -1]
+y <- data$ADHD.Diagnosis
+lasso_model <- cv.glmnet(x, y, family = "binomial", alpha = 1)
+lasso_model
+```
+
+Evaluate the prediction error: A 16.18% error rate means that your model is correctly predicting about 83.82% of the cases. This is a decent result, but combined with the low AUC score (\~0.525), it indicates that the model could still benefit from improvements.
+
+```{r}
+cv_results <- cv.glm(data, full_model, K = 10)
+print(cv_results$delta)
+```
+
+Lambda.min (0.006461): This is the value of lambda that minimizes the binomial deviance (error). It results in 1 non-zero coefficient, meaning one predictor variable is retained in the model.
+
+Lambda.1se (0.011291): This is a slightly larger lambda, chosen within one standard error of the minimum deviance, which helps to create a simpler model. At this value, there are 0 non-zero coefficients, suggesting that Lasso has regularized all coefficients to zero.
+
+The discrepancy between a low prediction error rate and a low AUC score can happen if the model is biased toward one class, often due to class imbalance or threshold issues.
+
+```{r}
+sum(data$ADHD.Diagnosis == "Yes")
+```

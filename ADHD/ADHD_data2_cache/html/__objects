@@ -1,0 +1,12 @@
+unnamed-chunk-2	
+unnamed-chunk-3	data
+unnamed-chunk-4	data
+unnamed-chunk-5	kruskal_hyperactivity	kruskal_inattention	kruskal_overall
+unnamed-chunk-6	data	wilcox_test
+unnamed-chunk-7	data	kruskal_test
+unnamed-chunk-8	data	kruskal_test	spearman_corr
+unnamed-chunk-9	data	kruskal_test
+unnamed-chunk-10	lm_model	spearman_corr
+unnamed-chunk-11	data	wilcox_test_dv
+unnamed-chunk-12	data	wilcox_test_school
+unnamed-chunk-13	lm_adhd	lm_social	spearman_corr_adhd	spearman_corr_social
